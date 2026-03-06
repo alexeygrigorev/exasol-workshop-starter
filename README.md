@@ -4,22 +4,45 @@ Open this repo in GitHub Codespaces to get started with AWS access.
 
 ## For Participants
 
-### Option A: Automatic (recommended)
+### 1. Set the passphrase
 
-1. Go to [github.com/settings/codespaces](https://github.com/settings/codespaces) → **New secret**
-   - **Name:** `WORKSHOP_PASSPHRASE`
-   - **Value:** *(your instructor will share this)*
-   - **Repository access:** select `alexeygrigorev/exasol-workshop-starter`
-2. Click **Code → Codespaces → Create codespace on main**
-3. AWS access is configured automatically. Verify:
+Your instructor will share the passphrase during the workshop.
+
+Via the web UI:
+
+1. Go to [github.com/settings/codespaces](https://github.com/settings/codespaces) → New secret
+2. Name: `WORKSHOP_PASSPHRASE`
+3. Value: the passphrase from your instructor
+4. Repository access: select `alexeygrigorev/exasol-workshop-starter`
+
+Or via the CLI:
+
+```bash
+gh secret set WORKSHOP_PASSPHRASE --user --repos alexeygrigorev/exasol-workshop-starter --app codespaces
+# paste the passphrase when prompted
+```
+
+### 2. Create a Codespace
+
+Via the web UI: go to the repo page → Code → Codespaces → Create codespace on main
+
+Or via the CLI:
+
+```bash
+gh codespace create --repo alexeygrigorev/exasol-workshop-starter --branch main --machine basicLinux32gb
+gh codespace ssh  # or open in VS Code
+```
+
+AWS access is configured automatically. Verify:
 
 ```bash
 aws sts get-caller-identity
 ```
 
-### Option B: Manual
+### If it didn't work
 
-If you skipped the secret or it didn't work:
+If you created the Codespace before setting the secret, either rebuild it
+(`Cmd/Ctrl+Shift+P` → "Rebuild Container") or run manually:
 
 ```bash
 bash .devcontainer/setup-aws.sh
