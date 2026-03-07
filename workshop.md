@@ -1025,279 +1025,129 @@ We have Python scripts that load one month at a time, but there are 101 months t
 
 ### Start Kestra
 
-The docker-compose file mounts your `code/` directory into the Kestra container at `/app/code`, so the scripts and deployment files are available without downloading. Download the docker-compose file and start Kestra:
+The [docker-compose file](reference/kestra/docker-compose.yml) mounts the project root into the Kestra container at `/workspace`, so both `code/` and `deployment/` are available. Download it and start Kestra:
 
 ```bash
 cd code
+mkdir -p kestra
 wget ${PREFIX}/kestra/docker-compose.yml -O kestra/docker-compose.yml
 cd kestra
 docker compose up -d
 ```
 
-Wait a minute for it to start, then open the Kestra UI at http://localhost:8080.
+Kestra runs as root inside the container. To avoid permission issues with the `.venv` directory it creates, initialize it first:
+
+```bash
+cd code
+uv sync
+cd kestra
+docker compose up -d
+```
+
+Wait a minute for it to start, then open the Kestra UI at http://localhost:8080. Log in with `admin@kestra.io` / `Admin1234!`.
+
+### Your first flow
+
+Let's start simple to see how Kestra works. In the Kestra UI, go to Flows, click Create. Paste the following:
+
+```yaml
+id: hello
+namespace: prescriptions
+
+tasks:
+  - id: install_deps
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    commands:
+      - cd /workspace/code && uv sync
+
+  - id: find_urls
+    type: io.kestra.plugin.scripts.python.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    commands:
+      - cd /workspace/code && uv run python find_urls.py
+```
+
+Click Save, then Execute. You'll see two tasks run sequentially: first `install_deps`, then `find_urls`. Click on each task to see its logs.
+
+We use `taskRunner: Process` so the scripts run directly on the host - this gives them access to both `code/` and `deployment/` directories, which are mounted into the container at `/workspace` via docker-compose.
+
+Now try adding a third task yourself - run `load_addr.py` for period `201008`:
+
+```yaml
+  - id: load_addr
+    type: io.kestra.plugin.scripts.python.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    commands:
+      - cd /workspace/code && uv run python load_addr.py --period 201008
+```
+
+Save and Execute. You should see all three tasks complete.
 
 ### Load a single month
 
-In the Kestra UI, go to Flows, click Create. Paste the following flow definition.
+We already loaded one month manually. Now let's create a proper flow for it. Each loader script supports a `--step` argument that runs a single stage of the pipeline, so every stage (ingest raw CSV, trim whitespace, transform, warehouse load) becomes a separate step in the Kestra flow - visible in the UI with its own logs and status.
 
-Each loader script supports a `--step` argument that runs a single stage of the pipeline. This lets us make every stage (ingest raw CSV, trim whitespace, transform, warehouse load) a separate step in the Kestra flow - visible in the UI with its own logs and status.
+Tasks in a Kestra `tasks` list run sequentially - each task waits for the previous one to finish. The three pipelines (ADDR, CHEM, PDPI) are independent of each other, but we run them sequentially because the Exasol Community Edition limits us to 5 parallel connections. When `load_all` runs 2 months concurrently, running the pipelines in parallel within each month would exceed that limit. Inside each pipeline, `Sequential` ensures stages run in order.
 
-The flow takes a `period` input (e.g. `201008`) and runs these steps:
-
-1. `uv sync` - install dependencies
-2. `find_urls.py` - scrape CSV URLs
-3. ADDR pipeline: load_raw → trim → combine_address → merge into PRACTICE
-4. CHEM pipeline: load_raw → trim → merge into CHEMICAL
-5. PDPI pipeline: load_raw → trim → insert into PRESCRIPTION
-6. `check.py` - verify the result
-
-```yaml
-id: load_month
-namespace: prescriptions
-
-description: |
-  Load one month of NHS prescription data into Exasol.
-  Each stage (ingest raw, trim, transform, warehouse load) is a separate step.
-
-inputs:
-  - id: period
-    type: STRING
-    description: Period to load (e.g. 201008)
-
-tasks:
-  - id: install_deps
-    type: io.kestra.plugin.scripts.shell.Commands
-    taskRunner:
-      type: io.kestra.plugin.core.runner.Process
-    commands:
-      - cd /app/code && uv sync
-
-  - id: find_urls
-    type: io.kestra.plugin.scripts.python.Commands
-    taskRunner:
-      type: io.kestra.plugin.core.runner.Process
-    commands:
-      - cd /app/code && uv run python find_urls.py
-
-  - id: addr_load_raw
-    type: io.kestra.plugin.scripts.python.Commands
-    taskRunner:
-      type: io.kestra.plugin.core.runner.Process
-    commands:
-      - cd /app/code && uv run python load_addr.py --period {{inputs.period}} --step load_raw
-
-  - id: addr_trim
-    type: io.kestra.plugin.scripts.python.Commands
-    taskRunner:
-      type: io.kestra.plugin.core.runner.Process
-    commands:
-      - cd /app/code && uv run python load_addr.py --period {{inputs.period}} --step trim
-
-  - id: addr_combine_address
-    type: io.kestra.plugin.scripts.python.Commands
-    taskRunner:
-      type: io.kestra.plugin.core.runner.Process
-    commands:
-      - cd /app/code && uv run python load_addr.py --period {{inputs.period}} --step combine_address
-
-  - id: addr_merge
-    type: io.kestra.plugin.scripts.python.Commands
-    taskRunner:
-      type: io.kestra.plugin.core.runner.Process
-    commands:
-      - cd /app/code && uv run python load_addr.py --period {{inputs.period}} --step merge
-
-  - id: chem_load_raw
-    type: io.kestra.plugin.scripts.python.Commands
-    taskRunner:
-      type: io.kestra.plugin.core.runner.Process
-    commands:
-      - cd /app/code && uv run python load_chem.py --period {{inputs.period}} --step load_raw
-
-  - id: chem_trim
-    type: io.kestra.plugin.scripts.python.Commands
-    taskRunner:
-      type: io.kestra.plugin.core.runner.Process
-    commands:
-      - cd /app/code && uv run python load_chem.py --period {{inputs.period}} --step trim
-
-  - id: chem_merge
-    type: io.kestra.plugin.scripts.python.Commands
-    taskRunner:
-      type: io.kestra.plugin.core.runner.Process
-    commands:
-      - cd /app/code && uv run python load_chem.py --period {{inputs.period}} --step merge
-
-  - id: pdpi_load_raw
-    type: io.kestra.plugin.scripts.python.Commands
-    taskRunner:
-      type: io.kestra.plugin.core.runner.Process
-    commands:
-      - cd /app/code && uv run python load_pdpi.py --period {{inputs.period}} --step load_raw
-
-  - id: pdpi_trim
-    type: io.kestra.plugin.scripts.python.Commands
-    taskRunner:
-      type: io.kestra.plugin.core.runner.Process
-    commands:
-      - cd /app/code && uv run python load_pdpi.py --period {{inputs.period}} --step trim
-
-  - id: pdpi_insert
-    type: io.kestra.plugin.scripts.python.Commands
-    taskRunner:
-      type: io.kestra.plugin.core.runner.Process
-    commands:
-      - cd /app/code && uv run python load_pdpi.py --period {{inputs.period}} --step insert
-
-  - id: check
-    type: io.kestra.plugin.scripts.python.Commands
-    taskRunner:
-      type: io.kestra.plugin.core.runner.Process
-    commands:
-      - cd /app/code && uv run python check.py
-```
-
-Click Save, then Execute. Enter `201008` as the period and click Execute. You can watch each step's progress and logs in the UI.
-
-The flow graph shows every stage as a separate box:
+The full flow definition is in [load_month.yml](reference/kestra/load_month.yml). It takes a `period` input (e.g. `201008`) and runs:
 
 ```
-install_deps → find_urls → addr_load_raw → addr_trim → addr_combine_address → addr_merge
-                         → chem_load_raw → chem_trim → chem_merge
-                         → pdpi_load_raw → pdpi_trim → pdpi_insert
-                         → check
+addr: load_raw → trim → combine_address → merge
+→ chem: load_raw → trim → merge
+→ pdpi: load_raw → trim → insert
+→ check
 ```
 
-We use `taskRunner: Process` so the scripts run directly on the host - this gives them access to the `deployment/` directory with the Exasol connection details. The `code/` directory is mounted into the container via docker-compose.
+Note that `load_month` does not include `install_deps` or `find_urls` — those are run once by `load_all` before iterating over months.
+
+Via the UI: go to Flows, click Create, paste the content of `load_month.yml`, click Save. Then click Execute, enter `201008` as the period, and click Execute.
+
+Via the API:
+
+```bash
+# Create the flow
+curl -u "admin@kestra.io:Admin1234!" \
+  -X POST http://localhost:8080/api/v1/flows \
+  -H "Content-Type: application/x-yaml" \
+  --data-binary @kestra/load_month.yml
+
+# Execute it
+curl -u "admin@kestra.io:Admin1234!" \
+  -X POST http://localhost:8080/api/v1/executions/prescriptions/load_month \
+  -H "Content-Type: multipart/form-data" \
+  -F "period=201008"
+```
 
 ### Load all months
 
-To load all 101 months, create a second flow. Go to Flows, click Create, and paste:
-
-```yaml
-id: load_all
-namespace: prescriptions
-
-description: |
-  Load all 101 months of NHS prescription data into Exasol.
-  Iterates over all periods. Each stage is a separate step.
-
-tasks:
-  - id: install_deps
-    type: io.kestra.plugin.scripts.shell.Commands
-    taskRunner:
-      type: io.kestra.plugin.core.runner.Process
-    commands:
-      - cd /app/code && uv sync
-
-  - id: find_urls
-    type: io.kestra.plugin.scripts.python.Commands
-    taskRunner:
-      type: io.kestra.plugin.core.runner.Process
-    commands:
-      - cd /app/code && uv run python find_urls.py
-
-  - id: get_periods
-    type: io.kestra.plugin.scripts.python.Script
-    taskRunner:
-      type: io.kestra.plugin.core.runner.Process
-    script: |
-      import json
-      from kestra import Kestra
-      data = json.load(open('/app/code/data/prescription_urls.json'))
-      periods = [m['period'] for m in data['months']]
-      Kestra.outputs({'periods': periods})
-
-  - id: load_each_month
-    type: io.kestra.plugin.core.flow.ForEach
-    values: "{{outputs.get_periods.vars.periods}}"
-    tasks:
-      - id: addr_load_raw
-        type: io.kestra.plugin.scripts.python.Commands
-        taskRunner:
-          type: io.kestra.plugin.core.runner.Process
-        commands:
-          - cd /app/code && uv run python load_addr.py --period {{taskrun.value}} --step load_raw
-
-      - id: addr_trim
-        type: io.kestra.plugin.scripts.python.Commands
-        taskRunner:
-          type: io.kestra.plugin.core.runner.Process
-        commands:
-          - cd /app/code && uv run python load_addr.py --period {{taskrun.value}} --step trim
-
-      - id: addr_combine_address
-        type: io.kestra.plugin.scripts.python.Commands
-        taskRunner:
-          type: io.kestra.plugin.core.runner.Process
-        commands:
-          - cd /app/code && uv run python load_addr.py --period {{taskrun.value}} --step combine_address
-
-      - id: addr_merge
-        type: io.kestra.plugin.scripts.python.Commands
-        taskRunner:
-          type: io.kestra.plugin.core.runner.Process
-        commands:
-          - cd /app/code && uv run python load_addr.py --period {{taskrun.value}} --step merge
-
-      - id: chem_load_raw
-        type: io.kestra.plugin.scripts.python.Commands
-        taskRunner:
-          type: io.kestra.plugin.core.runner.Process
-        commands:
-          - cd /app/code && uv run python load_chem.py --period {{taskrun.value}} --step load_raw
-
-      - id: chem_trim
-        type: io.kestra.plugin.scripts.python.Commands
-        taskRunner:
-          type: io.kestra.plugin.core.runner.Process
-        commands:
-          - cd /app/code && uv run python load_chem.py --period {{taskrun.value}} --step trim
-
-      - id: chem_merge
-        type: io.kestra.plugin.scripts.python.Commands
-        taskRunner:
-          type: io.kestra.plugin.core.runner.Process
-        commands:
-          - cd /app/code && uv run python load_chem.py --period {{taskrun.value}} --step merge
-
-      - id: pdpi_load_raw
-        type: io.kestra.plugin.scripts.python.Commands
-        taskRunner:
-          type: io.kestra.plugin.core.runner.Process
-        commands:
-          - cd /app/code && uv run python load_pdpi.py --period {{taskrun.value}} --step load_raw
-
-      - id: pdpi_trim
-        type: io.kestra.plugin.scripts.python.Commands
-        taskRunner:
-          type: io.kestra.plugin.core.runner.Process
-        commands:
-          - cd /app/code && uv run python load_pdpi.py --period {{taskrun.value}} --step trim
-
-      - id: pdpi_insert
-        type: io.kestra.plugin.scripts.python.Commands
-        taskRunner:
-          type: io.kestra.plugin.core.runner.Process
-        commands:
-          - cd /app/code && uv run python load_pdpi.py --period {{taskrun.value}} --step insert
-
-  - id: check
-    type: io.kestra.plugin.scripts.python.Commands
-    taskRunner:
-      type: io.kestra.plugin.core.runner.Process
-    commands:
-      - cd /app/code && uv run python check.py
-```
-
-This flow:
+Now that we have the `load_month` flow, we can reuse it. The [load_all.yml](reference/kestra/load_all.yml) flow uses `Subflow` to call `load_month` for each period - no need to duplicate the pipeline steps:
 
 1. Installs dependencies and finds all available URLs
 2. Uses the Kestra Python library to extract the list of 101 periods
-3. ForEach iterates over all periods - for each one, runs every stage as a separate step
+3. ForEach iterates over all periods, calling `load_month` as a subflow for each one
 4. After all months are loaded, runs `check.py` to verify the final state
 
-Click Execute to start. Loading all 101 months takes a while (~30 minutes depending on network and instance size), but you can monitor progress in the UI - each month shows as a separate iteration in the ForEach task, and each stage within that iteration is a separate step with its own logs.
+Via the UI: go to Flows, click Create, paste the content of `load_all.yml`, click Save, then Execute.
+
+Via the API:
+
+```bash
+# Create the flow
+curl -u "admin@kestra.io:Admin1234!" \
+  -X POST http://localhost:8080/api/v1/flows \
+  -H "Content-Type: application/x-yaml" \
+  --data-binary @kestra/load_all.yml
+
+# Execute it
+curl -u "admin@kestra.io:Admin1234!" \
+  -X POST http://localhost:8080/api/v1/executions/prescriptions/load_all
+```
+
+Loading all 101 months takes a while (~30 minutes depending on network and instance size), but you can monitor progress in the UI - each month shows as a separate iteration in the ForEach task, and each stage within that iteration is a separate step with its own logs.
 
 Since all our scripts are idempotent, if the flow fails partway through (e.g. network timeout), you can re-run it safely. Already-loaded months will be overwritten with identical data.
 

@@ -30,9 +30,17 @@ def connect() -> pyexasol.ExaConnection:
     return conn
 
 
+def create_if_not_exists(conn: pyexasol.ExaConnection, sql: str) -> None:
+    """Execute a CREATE IF NOT EXISTS, ignoring concurrent-creation conflicts."""
+    try:
+        conn.execute(sql)
+    except pyexasol.exceptions.ExaQueryError:
+        pass  # object already exists (concurrent creation race)
+
+
 def ensure_schemas(conn: pyexasol.ExaConnection) -> None:
-    conn.execute(f"CREATE SCHEMA IF NOT EXISTS {STAGING_SCHEMA}")
-    conn.execute(f"CREATE SCHEMA IF NOT EXISTS {WAREHOUSE_SCHEMA}")
+    create_if_not_exists(conn, f"CREATE SCHEMA IF NOT EXISTS {STAGING_SCHEMA}")
+    create_if_not_exists(conn, f"CREATE SCHEMA IF NOT EXISTS {WAREHOUSE_SCHEMA}")
     conn.execute(f"OPEN SCHEMA {STAGING_SCHEMA}")
 
 

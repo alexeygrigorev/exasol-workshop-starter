@@ -158,7 +158,7 @@ def main() -> None:
     db.ensure_schemas(conn)
 
     # Ensure warehouse table exists
-    conn.execute(f"""
+    db.create_if_not_exists(conn, f"""
         CREATE TABLE IF NOT EXISTS {db.WAREHOUSE_SCHEMA}.PRACTICE (
             PRACTICE_CODE VARCHAR(20),
             PRACTICE_NAME VARCHAR(200),
