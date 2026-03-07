@@ -6,13 +6,6 @@ description: |
   Calls the load_month flow for each period.
 
 tasks:
-  - id: install_deps
-    type: io.kestra.plugin.scripts.shell.Commands
-    taskRunner:
-      type: io.kestra.plugin.core.runner.Process
-    commands:
-      - cd /workspace/code && uv sync
-
   - id: find_urls
     type: io.kestra.plugin.scripts.python.Commands
     taskRunner:
