@@ -43,10 +43,3 @@ tasks:
         inputs:
           period: "{{taskrun.value}}"
         wait: true
-
-  - id: check
-    type: io.kestra.plugin.scripts.python.Commands
-    taskRunner:
-      type: io.kestra.plugin.core.runner.Process
-    commands:
-      - cd /workspace/code && uv run python check.py

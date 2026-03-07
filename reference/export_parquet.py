@@ -17,7 +17,7 @@ import utils.db as db
 
 
 TABLES = ["PRACTICE", "CHEMICAL", "PRESCRIPTION"]
-CHUNK_SIZE = 1_000_000
+CHUNK_SIZE = 25_000_000
 
 
 def export_table(conn: pyexasol.ExaConnection, table: str, output_dir: Path) -> None:
