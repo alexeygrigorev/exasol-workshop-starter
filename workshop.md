@@ -1,72 +1,5 @@
 # Exasol Workshop
 
-## Prerequisites
-
-### Install AWS CLI
-
-The AWS CLI is **not** pre-installed in the default GitHub Codespaces image. You need to install it before you can deploy Exasol or interact with AWS services.
-
-**In your Codespace terminal, run:**
-
-```bash
-# Update package list and install dependencies
-sudo apt-get update
-sudo apt-get install -y curl unzip
-
-# Download AWS CLI v2
-cd /tmp
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-unzip -o awscliv2.zip
-sudo ./aws/install
-
-# Return to workspace
-cd /workspaces/aws-credentials-vending-machine
-
-# Verify installation
-aws --version
-```
-
-You should see output like `aws-cli/2.x.x Python/3.x.x Linux/x.x.x`.
-
-### Configure AWS Credentials
-
-Once the AWS CLI is installed, configure your workshop credentials:
-
-```bash
-aws configure --profile exasol-workshop
-```
-
-When prompted, enter:
-- **AWS Access Key ID**: (provided by instructor)
-- **AWS Secret Access Key**: (provided by instructor)
-- **Default region name**: `eu-central-1` (or as specified by instructor)
-- **Default output format**: `json` (press Enter for default)
-
-**Verify your credentials work:**
-
-```bash
-AWS_PROFILE=exasol-workshop aws sts get-caller-identity
-```
-
-You should see JSON output with your `Account`, `UserId`, and `Arn`. If this fails, contact the instructor.
-
-### Set Default Region (Optional)
-
-If you want to avoid typing `AWS_PROFILE=exasol-workshop` before every AWS command, you can set it as your default profile:
-
-```bash
-export AWS_PROFILE=exasol-workshop
-export AWS_DEFAULT_REGION=eu-central-1
-```
-
-Add these to your shell profile to persist across terminal sessions:
-
-```bash
-echo 'export AWS_PROFILE=exasol-workshop' >> ~/.bashrc
-echo 'export AWS_DEFAULT_REGION=eu-central-1' >> ~/.bashrc
-source ~/.bashrc
-```
-
 ## Setting Up Exasol
 
 ### Install the Exasol CLI
@@ -1246,8 +1179,6 @@ This terminates the EC2 instance and cleans up all AWS resources.
 
 ## Troubleshooting
 
-- **AWS CLI not found?** Install it using the instructions in the [Prerequisites](#prerequisites) section above
-- **AWS credentials error?** Run `aws sts get-caller-identity` to verify your credentials are configured correctly
 - Codespace created before setting the secret? Rebuild it: `Cmd/Ctrl+Shift+P` -> "Rebuild Container"
 - "Wrong passphrase"? Double-check with your instructor
 - Permission errors on AWS? Ask your instructor -- the role may need updated permissions
