@@ -44,3 +44,7 @@ aws sts get-caller-identity
 ### 4. Follow the workshop instructions
 
 See [workshop.md](workshop.md) for the full workshop guide.
+
+### Running locally (without Codespaces)
+
+If you prefer to run locally using your own AWS account, see [local-setup.md](local-setup.md).

@@ -1,6 +1,6 @@
 # Local Setup (without Codespaces)
 
-If you're not using GitHub Codespaces, you need to install the AWS CLI and configure credentials manually.
+If you're not using GitHub Codespaces, you need to install the tools and configure AWS credentials using your own AWS account.
 
 ## Install AWS CLI
 
@@ -17,22 +17,36 @@ brew install awscli
 
 Verify: `aws --version`
 
-## Configure AWS Credentials
-
-Run the setup script with the endpoint URL and encrypted token provided by your instructor:
+## Install the Exasol CLI
 
 ```bash
-source setup.sh <endpoint_url> <encrypted_token>
+mkdir -p ~/bin
+curl https://downloads.exasol.com/exasol-personal/installer.sh | bash
+mv exasol ~/bin/
 ```
 
-You'll be prompted for the passphrase. After entering it, verify:
+Or download it from the [Exasol Personal Edition page](https://downloads.exasol.com/exasol-personal) and place it in `~/bin/` (or any other folder on the `PATH`).
+
+## Configure AWS Credentials
+
+You'll need your own AWS account. Configure the CLI with your credentials:
+
+```bash
+aws configure
+```
+
+Set the region:
+
+```bash
+export AWS_DEFAULT_REGION=eu-central-1
+```
+
+Verify:
 
 ```bash
 aws sts get-caller-identity
 ```
 
-## Set Default Region
+## Follow the workshop
 
-```bash
-export AWS_DEFAULT_REGION=eu-central-1
-```
+Once the tools are installed and AWS is configured, follow [workshop.md](workshop.md).

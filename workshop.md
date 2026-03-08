@@ -2,18 +2,6 @@
 
 ## Setting Up Exasol
 
-### Install the Exasol CLI
-
-The `exasol` CLI is pre-installed in the Codespace. If you're not using Codespaces, install it manually:
-
-```bash
-mkdir -p ~/bin
-curl https://downloads.exasol.com/exasol-personal/installer.sh | bash
-mv exasol ~/bin/
-```
-
-Or download it from the [Exasol Personal Edition page](https://downloads.exasol.com/exasol-personal) and place it in `~/bin/` (or any other folder on the `PATH`).
-
 ### Deploy Exasol Personal Edition
 
 Create a `deployment` directory inside the repo:
