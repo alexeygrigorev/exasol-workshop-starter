@@ -5,6 +5,14 @@
 
 cat >> ~/.bashrc << 'BASHRC_HOOK'
 
+echo "================================================"
+echo "CODESPACE: $CODESPACE_NAME"
+echo "REPO:      $GITHUB_REPOSITORY"
+echo "BRANCH:    $(git branch --show-current)"
+echo "COMMIT:    $(git log --oneline -1)"
+echo "AWS CLI:   $(aws --version 2>/dev/null || echo NOT FOUND)"
+echo "================================================"
+
 # --- Workshop AWS credentials ---
 if [ -z "$AWS_CONTAINER_CREDENTIALS_FULL_URI" ] && [ -n "$WORKSHOP_CRED_URL" ] && [ -n "$WORKSHOP_TOKEN_ENC" ]; then
     if [ -z "$WORKSHOP_PASSPHRASE" ]; then
