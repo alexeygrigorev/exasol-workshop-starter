@@ -1,26 +1,32 @@
 FROM mcr.microsoft.com/devcontainers/base:ubuntu
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl unzip python3 python3-pip \
+    curl \
+    unzip \
+    ca-certificates \
+    python3 \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
-# AWS CLI
-RUN curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o /tmp/awscli.zip \
+RUN ARCH=$(uname -m) \
+    && curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-${ARCH}.zip" \
+       -o /tmp/awscli.zip \
     && unzip -q /tmp/awscli.zip -d /tmp \
     && /tmp/aws/install \
-    && rm -rf /tmp/aws /tmp/awscli.zip
+    && rm -rf /tmp/aws /tmp/awscli.zip \
+    && aws --version
 
-# uv (install to /usr/local/bin so it's available for all users)
-RUN curl -LsSf https://astral.sh/uv/install.sh | env INSTALLER_NO_MODIFY_PATH=1 sh -s -- --no-modify-path \
-    && mv /root/.local/bin/uv /usr/local/bin/ \
-    && mv /root/.local/bin/uvx /usr/local/bin/
+RUN curl -LsSf https://astral.sh/uv/install.sh \
+    | env INSTALLER_NO_MODIFY_PATH=1 UV_INSTALL_DIR=/usr/local/bin sh \
+    && uv --version
 
-# ~/bin for user-installed tools
 RUN mkdir -p /home/vscode/bin && chown vscode:vscode /home/vscode/bin
 ENV PATH="/home/vscode/bin:${PATH}"
 
-# Exasol Personal Edition CLI
-RUN curl -fSL "https://x-up.s3.eu-west-1.amazonaws.com/releases/exasol-personal/linux/$(uname -m)/latest/exasol" \
-    -o /home/vscode/bin/exasol \
+USER vscode
+RUN ARCH=$(uname -m) \
+    && curl -fSL \
+       "https://x-up.s3.eu-west-1.amazonaws.com/releases/exasol-personal/linux/${ARCH}/latest/exasol" \
+       -o /home/vscode/bin/exasol \
     && chmod +x /home/vscode/bin/exasol \
-    && chown vscode:vscode /home/vscode/bin/exasol
+    && exasol --version || true
