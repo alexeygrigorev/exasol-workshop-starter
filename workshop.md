@@ -907,14 +907,19 @@ Set the base URL for downloading reference scripts:
 PREFIX=https://raw.githubusercontent.com/alexeygrigorev/exasol-workshop-starter/main/reference
 ```
 
-Download the URL scraper and run it:
+Download the URL scraper:
 
 ```bash
 wget ${PREFIX}/find_urls.py
+```
+
+This script scrapes the [dataset page](https://www.data.gov.uk/dataset/176ae264-2484-4afe-a297-d51798eb8228/prescribing-by-gp-practice-presentation-level) to find all available CSV file URLs. Run it:
+
+```bash
 uv run python find_urls.py
 ```
 
-This scrapes the [dataset page](https://www.data.gov.uk/dataset/176ae264-2484-4afe-a297-d51798eb8228/prescribing-by-gp-practice-presentation-level) and saves `data/prescription_urls.json` with ~101 months of data (2010-2018).
+It saves `data/prescription_urls.json` with ~101 months of data (2010-2018).
 
 ### Shared utilities module
 
@@ -936,35 +941,49 @@ wget ${PREFIX}/utils/db.py -O utils/db.py
 
 ```bash
 wget ${PREFIX}/load_addr.py
-uv run python load_addr.py --period 201008
 ```
 
-This runs the same pipeline we did manually: STG_RAW → STG (trim) → STG_PROCESSED (address concat) → MERGE into PRACTICE.
+This automates the same pipeline we did manually: STG_RAW → STG (trim) → STG_PROCESSED (address concat) → MERGE into PRACTICE. Run it:
+
+```bash
+uv run python load_addr.py --period 201008
+```
 
 ### Load CHEM (chemical substances)
 
 ```bash
 wget ${PREFIX}/load_chem.py
-uv run python load_chem.py --period 201008
 ```
 
-Same pattern: STG_RAW → STG (trim) → MERGE into CHEMICAL.
+Same pattern as ADDR: STG_RAW → STG (trim) → MERGE into CHEMICAL. Run it:
+
+```bash
+uv run python load_chem.py --period 201008
+```
 
 ### Load PDPI (prescriptions)
 
 ```bash
 wget ${PREFIX}/load_pdpi.py
+```
+
+This is the big one (~10M rows). Pipeline: STG_RAW → STG (trim) → DELETE + INSERT into PRESCRIPTION. Run it:
+
+```bash
 uv run python load_pdpi.py --period 201008
 ```
 
-This is the big one (~10M rows). Pipeline: STG_RAW → STG (trim) → DELETE + INSERT into PRESCRIPTION.
-
 ### Verify the data
 
-Download and run the analytics check script:
+Download the analytics check script:
 
 ```bash
 wget ${PREFIX}/check.py
+```
+
+This queries the warehouse to verify everything loaded correctly: row counts for all three tables, top 10 drugs by total cost, and top 10 practices by prescription volume. Run it:
+
+```bash
 uv run python check.py
 ```
 
