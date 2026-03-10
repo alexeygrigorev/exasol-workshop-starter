@@ -2,13 +2,19 @@ __pycache__
 .venv/
 
 # Deployment secrets and state
-deployment/secrets-*.json
+deployment/
+
+# Granular deployment patterns (kept for reference)
+deployment/secrets.json
 deployment/*.pem
-deployment/terraform.tfstate
-deployment/terraform.tfstate.backup
-deployment/.terraform/
-deployment/tofu
-deployment/.workflowState.json
+deployment/deployment.json
+deployment/connection-instructions.txt
+deployment/.exasolLauncherState.json
+deployment/.exasolLauncher.version
+deployment/infrastructure/terraform.tfstate
+deployment/infrastructure/terraform.tfstate.backup
+deployment/infrastructure/.terraform/
+deployment/infrastructure/tofu
 
 # Data files
 data/
