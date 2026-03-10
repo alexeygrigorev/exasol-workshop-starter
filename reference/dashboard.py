@@ -10,50 +10,52 @@ import pandas as pd
 import streamlit as st
 from streamlit_autorefresh import st_autorefresh
 from datetime import datetime
+from threading import Lock
 
 import utils.db as db
 
 
 @st.cache_resource
-def get_connection():
+def get_shared_connection():
     conn = db.connect()
     db.ensure_schemas(conn)
-    return conn
+    return conn, Lock()
 
 
-def load_row_counts(conn) -> pd.DataFrame:
+def execute_fetchall(conn, conn_lock: Lock, query: str):
+    with conn_lock:
+        return conn.execute(query).fetchall()
+
+
+def load_row_counts(conn, conn_lock: Lock) -> pd.DataFrame:
     query = f"""
-        SELECT 'PRACTICE' AS TABLE_NAME, COUNT(*) AS ROW_COUNT
-        FROM {db.WAREHOUSE_SCHEMA}.PRACTICE
-        UNION ALL
-        SELECT 'CHEMICAL' AS TABLE_NAME, COUNT(*) AS ROW_COUNT
-        FROM {db.WAREHOUSE_SCHEMA}.CHEMICAL
-        UNION ALL
-        SELECT 'PRESCRIPTION' AS TABLE_NAME, COUNT(*) AS ROW_COUNT
-        FROM {db.WAREHOUSE_SCHEMA}.PRESCRIPTION
+        SELECT TABLE_NAME, TABLE_ROW_COUNT AS ROW_COUNT
+        FROM EXA_ALL_TABLES
+        WHERE TABLE_SCHEMA = '{db.WAREHOUSE_SCHEMA}'
+          AND TABLE_NAME IN ('PRACTICE', 'CHEMICAL', 'PRESCRIPTION')
     """
-    rows = conn.execute(query).fetchall()
+    rows = execute_fetchall(conn, conn_lock, query)
     df = pd.DataFrame(rows, columns=["TABLE_NAME", "ROW_COUNT"])
     if not df.empty:
         df["ROW_COUNT"] = pd.to_numeric(df["ROW_COUNT"], errors="coerce").fillna(0).astype(int)
     return df
 
 
-def load_top_drugs(conn) -> pd.DataFrame:
-    rows = conn.execute(f"""
-        SELECT sub.BNF_CODE, c.CHEMICAL_NAME, sub.TOTAL_ITEMS, sub.TOTAL_COST
+def load_top_chemicals(conn, conn_lock: Lock) -> pd.DataFrame:
+    rows = execute_fetchall(conn, conn_lock, f"""
+        SELECT sub.CHEMICAL_CODE, c.CHEMICAL_NAME, sub.TOTAL_ITEMS, sub.TOTAL_COST
         FROM (
-            SELECT BNF_CODE, CHEMICAL_CODE, SUM(ITEMS) AS TOTAL_ITEMS, SUM(ACTUAL_COST) AS TOTAL_COST
+            SELECT CHEMICAL_CODE, SUM(ITEMS) AS TOTAL_ITEMS, SUM(ACTUAL_COST) AS TOTAL_COST
             FROM {db.WAREHOUSE_SCHEMA}.PRESCRIPTION
-            GROUP BY BNF_CODE, CHEMICAL_CODE
+            GROUP BY CHEMICAL_CODE
         ) sub
         LEFT JOIN {db.WAREHOUSE_SCHEMA}.CHEMICAL c
             ON sub.CHEMICAL_CODE = c.CHEMICAL_CODE
         ORDER BY sub.TOTAL_COST DESC
         LIMIT 10
-    """).fetchall()
+    """)
 
-    df = pd.DataFrame(rows, columns=["BNF_CODE", "CHEMICAL_NAME", "TOTAL_ITEMS", "TOTAL_COST"])
+    df = pd.DataFrame(rows, columns=["CHEMICAL_CODE", "CHEMICAL_NAME", "TOTAL_ITEMS", "TOTAL_COST"])
     if not df.empty:
         df["CHEMICAL_NAME"] = df["CHEMICAL_NAME"].fillna("N/A")
         df["TOTAL_ITEMS"] = pd.to_numeric(df["TOTAL_ITEMS"], errors="coerce").fillna(0).astype(int)
@@ -61,8 +63,8 @@ def load_top_drugs(conn) -> pd.DataFrame:
     return df
 
 
-def load_top_practices(conn) -> pd.DataFrame:
-    rows = conn.execute(f"""
+def load_top_practices(conn, conn_lock: Lock) -> pd.DataFrame:
+    rows = execute_fetchall(conn, conn_lock, f"""
         SELECT sub.PRACTICE_CODE, pr.PRACTICE_NAME, pr.POSTCODE, sub.TOTAL_ITEMS
         FROM (
             SELECT PRACTICE_CODE, SUM(ITEMS) AS TOTAL_ITEMS
@@ -73,7 +75,7 @@ def load_top_practices(conn) -> pd.DataFrame:
             ON sub.PRACTICE_CODE = pr.PRACTICE_CODE
         ORDER BY sub.TOTAL_ITEMS DESC
         LIMIT 10
-    """).fetchall()
+    """)
 
     df = pd.DataFrame(rows, columns=["PRACTICE_CODE", "PRACTICE_NAME", "POSTCODE", "TOTAL_ITEMS"])
     if not df.empty:
@@ -104,7 +106,7 @@ def main() -> None:
     st_autorefresh(interval=5000, key="dashboard_autorefresh")
 
     try:
-        conn = get_connection()
+        conn, conn_lock = get_shared_connection()
     except Exception as error:
         st.error(f"Database connection failed: {error}")
         st.stop()
@@ -112,13 +114,13 @@ def main() -> None:
     controls_col, refresh_time_col = st.columns([1, 4])
     with controls_col:
         if st.button("Refresh data"):
-            st.cache_data.clear()
+            st.rerun()
     with refresh_time_col:
         st.caption(f"Last refresh: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-    row_counts = load_row_counts(conn)
-    top_drugs = load_top_drugs(conn)
-    top_practices = load_top_practices(conn)
+    row_counts = load_row_counts(conn, conn_lock)
+    top_chemicals = load_top_chemicals(conn, conn_lock)
+    top_practices = load_top_practices(conn, conn_lock)
 
     st.subheader("Row counts")
     c1, c2, c3 = st.columns(3)
@@ -127,11 +129,11 @@ def main() -> None:
     c2.metric("CHEMICAL", f"{counts.get('CHEMICAL', 0):,}")
     c3.metric("PRESCRIPTION", f"{counts.get('PRESCRIPTION', 0):,}")
 
-    st.subheader("Top 10 drugs by total cost")
+    st.subheader("Top 10 chemicals by total cost")
     drugs_table_col, drugs_chart_col = st.columns(2)
     with drugs_table_col:
         st.dataframe(
-            top_drugs,
+            top_chemicals,
             use_container_width=True,
             hide_index=True,
             column_config={
@@ -140,8 +142,8 @@ def main() -> None:
             },
         )
     with drugs_chart_col:
-        if not top_drugs.empty:
-            render_compact_bar_chart(top_drugs, "BNF_CODE", "TOTAL_COST")
+        if not top_chemicals.empty:
+            render_compact_bar_chart(top_chemicals, "CHEMICAL_CODE", "TOTAL_COST")
 
     st.subheader("Top 10 practices by prescription volume")
     practices_table_col, practices_chart_col = st.columns(2)

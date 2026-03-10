@@ -13,20 +13,25 @@ def main() -> None:
     db.ensure_schemas(conn)
 
     print("=== Row counts ===")
+    rows = conn.execute(f"""
+        SELECT TABLE_NAME, TABLE_ROW_COUNT
+        FROM EXA_ALL_TABLES
+        WHERE TABLE_SCHEMA = '{db.WAREHOUSE_SCHEMA}'
+          AND TABLE_NAME IN ('PRACTICE', 'CHEMICAL', 'PRESCRIPTION')
+    """).fetchall()
+    counts = {table_name: int(row_count or 0) for table_name, row_count in rows}
     for table in ["PRACTICE", "CHEMICAL", "PRESCRIPTION"]:
-        count = conn.execute(
-            f"SELECT COUNT(*) FROM {db.WAREHOUSE_SCHEMA}.{table}"
-        ).fetchone()[0]
+        count = counts.get(table, 0)
         print(f"  {table}: {count:,} rows")
 
     print()
-    print("=== Top 10 drugs by total cost ===")
+    print("=== Top 10 chemicals by total cost ===")
     rows = conn.execute(f"""
-        SELECT sub.BNF_CODE, c.CHEMICAL_NAME, sub.TOTAL_ITEMS, sub.TOTAL_COST
+        SELECT sub.CHEMICAL_CODE, c.CHEMICAL_NAME, sub.TOTAL_ITEMS, sub.TOTAL_COST
         FROM (
-            SELECT BNF_CODE, CHEMICAL_CODE, SUM(ITEMS) AS TOTAL_ITEMS, SUM(ACTUAL_COST) AS TOTAL_COST
+            SELECT CHEMICAL_CODE, SUM(ITEMS) AS TOTAL_ITEMS, SUM(ACTUAL_COST) AS TOTAL_COST
             FROM {db.WAREHOUSE_SCHEMA}.PRESCRIPTION
-            GROUP BY BNF_CODE, CHEMICAL_CODE
+            GROUP BY CHEMICAL_CODE
         ) sub
         LEFT JOIN {db.WAREHOUSE_SCHEMA}.CHEMICAL c
             ON sub.CHEMICAL_CODE = c.CHEMICAL_CODE
@@ -34,7 +39,7 @@ def main() -> None:
         LIMIT 10
     """).fetchall()
 
-    print(f"  {'BNF_CODE':<16} {'CHEMICAL':<40} {'ITEMS':>10} {'COST':>12}")
+    print(f"  {'CHEM_CODE':<16} {'CHEMICAL':<40} {'ITEMS':>10} {'COST':>12}")
     print(f"  {'-'*16} {'-'*40} {'-'*10} {'-'*12}")
     for row in rows:
         print(f"  {row[0]:<16} {(row[1] or 'N/A'):<40} {int(row[2]):>10,} {float(row[3]):>12,.2f}")

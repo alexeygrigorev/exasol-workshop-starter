@@ -35,23 +35,35 @@ If the deployment process is interrupted, EC2 instances may continue to accrue c
 
 When the deployment finishes, you will see connection details for the database, the Exasol Admin URL, SSH access information, and where to find passwords.
 
-Make sure to add these to `.gitignore`:
+For this workshop starter, the safest option is to ignore the whole generated deployment directory:
 
 ```gitignore
-deployment/secrets-*.json
-deployment/*.pem
-deployment/terraform.tfstate
-deployment/.terraform/
-deployment/tofu
-deployment/.workflowState.json
+deployment/
 ```
 
-- `secrets-*.json` - database and admin UI passwords
+If you prefer more granular rules, these are the key files/directories:
+
+```gitignore
+deployment/secrets.json
+deployment/*.pem
+deployment/deployment.json
+deployment/connection-instructions.txt
+deployment/.exasolLauncherState.json
+deployment/.exasolLauncher.version
+deployment/infrastructure/terraform.tfstate
+deployment/infrastructure/terraform.tfstate.backup
+deployment/infrastructure/.terraform/
+deployment/infrastructure/tofu
+```
+
+- `secrets.json` - database and admin UI passwords
 - `*.pem` - private SSH key for EC2 access
-- `terraform.tfstate` - Terraform state with all resource details and secrets
-- `.terraform/` - Terraform provider plugins (large)
-- `tofu` - OpenTofu binary (~90 MB)
-- `.workflowState.json` - internal workflow tracking
+- `deployment.json` - deployment metadata (hostnames, IPs, cert)
+- `connection-instructions.txt` - generated connection endpoints and paths
+- `.exasolLauncherState.json` and `.exasolLauncher.version` - local launcher state/version
+- `infrastructure/terraform.tfstate` - Terraform state with all resource details and secrets
+- `infrastructure/.terraform/` - Terraform provider plugins (large)
+- `infrastructure/tofu` - OpenTofu binary (~90 MB)
 
 
 ## Exploring the Dataset
@@ -350,7 +362,7 @@ By now the deployment should be complete. Open a new terminal and go to the depl
 cd deployment
 ```
 
-When `exasol install` finishes, it prints connection details: host, port, username, and password. You can also find the password in `secrets-*.json`.
+When `exasol install` finishes, it prints connection details: host, port, username, and password. You can also find the password in `secrets.json`, and full connection info in `connection-instructions.txt` and `deployment.json`.
 
 Set up the VS Code Exasol extension — see [vscode.md](vscode.md) for instructions.
 
