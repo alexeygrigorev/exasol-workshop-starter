@@ -9,7 +9,7 @@
   },
   "containerEnv": {
     "WORKSHOP_CRED_URL": "https://weodslf4pnizn5n7vgrbht4ydm0behwx.lambda-url.eu-central-1.on.aws/",
-    "WORKSHOP_TOKEN_ENC": "U2FsdGVkX18wcA1+uWLpCW+1QJjfgZikasZUFgKed+NtXRDlW0PsBxnRNWoRbABdQm8xejV9zitM+QrC7R1U4A==",
+    "WORKSHOP_TOKEN_ENC": "U2FsdGVkX1/17vznhjph6Ac06Fvow1Vvfq7bKIHfD2LAiBLXDdMrTgpaM1IhvIrG\r\nftCLYXtOxVM/vNXPC/x9Kw==",
     "AWS_DEFAULT_REGION": "eu-central-1"
   },
   "postCreateCommand": "bash .devcontainer/setup-aws.sh"
