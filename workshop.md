@@ -1194,11 +1194,40 @@ Why `concurrencyLimit: 4`? The Exasol Community Edition allows only 5 parallel c
 Some months may fail due to unavailable source URLs (a few older months link to servers that are no longer online). The flow continues past failures — you'll see failed months marked in the UI, but the rest will keep loading. Since all our scripts are idempotent, you can re-run the flow safely. Already-loaded months will be overwritten with identical data.
 
 
-## Grafana dashboard
+## Streamlit dashboard
 
-While the data is loading, let's set up a Grafana dashboard to visualize the data. As more months load, you'll see the dashboard update with new data — a good way to monitor the load progress and start exploring the dataset visually.
+While the data is loading, run a Streamlit dashboard to visualize the warehouse checks. As more months load, the dashboard auto-refreshes so you can monitor progress and start exploring the dataset.
 
-TODO
+Download the dashboard script:
+
+```bash
+PREFIX=https://raw.githubusercontent.com/alexeygrigorev/exasol-workshop-starter/main/reference
+wget ${PREFIX}/dashboard.py
+```
+
+Install dependencies and start the app from the `code` folder:
+
+```bash
+uv add pandas streamlit streamlit-autorefresh altair
+```
+
+Then run:
+
+```bash
+uv run streamlit run dashboard.py
+```
+
+Then open the local URL shown by Streamlit (usually `http://localhost:8501`).
+
+The dashboard executes the same SQL checks as `check.py`:
+
+- A row-count summary panel for `PRACTICE`, `CHEMICAL`, and `PRESCRIPTION`
+- Top 10 drugs by total cost (table on the left, chart on the right)
+- Top 10 practices by prescription volume (table on the left, chart on the right)
+
+The app refreshes automatically every 5 seconds.
+
+You can still use the Refresh data button for an immediate update, and the Last refresh timestamp next to it shows when the current view was rendered.
 
 
 ## Managing the cluster
