@@ -327,22 +327,57 @@ Add to your notes:
 
 Note that the usual `file` command doesn't reliably detect CRLF in CSV files — it uses "magic" patterns that may suppress line ending information depending on file size and content.
 
+## Connecting to Exasol
+
+By now the deployment should be complete. Go back to the terminal where you ran `exasol install aws`.
+
+When `exasol install aws` finishes, it prints connection details: host, port, username, and password. You can also find the password in `secrets.json`, and full connection info in `connection-instructions.txt` and `deployment.json`.
+
+If it's still running, wait for it to finish before continuing.
+
 ### Initialize the project
 
-While Exasol is still deploying, let's set up our Python project (we're already in the `code` directory):
+Open a new terminal. Go to the `code` directory and initialize a Python project:
 
 ```bash
+cd code
 uv init
 uv add requests beautifulsoup4 pyexasol
 ```
 
-### Scrape available data URLs
+### Get connection details
 
 Set the base URL for downloading reference scripts:
 
 ```bash
 PREFIX=https://raw.githubusercontent.com/alexeygrigorev/exasol-workshop-starter/main/reference
 ```
+
+Download the connection info utility:
+
+```bash
+mkdir -p utils
+touch utils/__init__.py
+wget ${PREFIX}/utils/connection_info.py -O utils/connection_info.py
+```
+
+Run it to print the connection details (host, port, username, password, and TLS fingerprint):
+
+```bash
+uv run python -m utils.connection_info
+```
+
+You'll need these details in the next step.
+
+### Set up DBeaver
+
+[DBeaver](https://dbeaver.io/download/) is a database GUI that supports Exasol. Download it from [dbeaver.io/download](https://dbeaver.io/download/).
+
+To configure the Exasol connection in DBeaver, follow the [Exasol DBeaver guide](https://docs.exasol.com/db/latest/connect_exasol/sql_clients/dbeaver.htm). Use the connection details from the previous step.
+
+Once connected, you can run SQL queries directly in DBeaver. We'll use it for the rest of the workshop.
+
+### Scrape available data URLs
 
 Download the URL scraper:
 
@@ -357,19 +392,6 @@ uv run python find_urls.py
 ```
 
 It saves `data/prescription_urls.json` with ~101 months of data (2010-2018).
-
-
-## Connecting to Exasol
-
-By now the deployment should be complete. Go back to the terminal where you ran `exasol install aws`.
-
-When `exasol install aws` finishes, it prints connection details: host, port, username, and password. You can also find the password in `secrets.json`, and full connection info in `connection-instructions.txt` and `deployment.json`.
-
-Test the connection with a simple query:
-
-```sql
-SELECT 'Hello from Exasol!' AS greeting;
-```
 
 
 ## Loading data via SQL
