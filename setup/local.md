@@ -27,29 +27,16 @@ mv exasol ~/bin/
 
 Or download it from the [Exasol Personal Edition page](https://downloads.exasol.com/exasol-personal) and place it in `~/bin/` (or any other folder on the `PATH`).
 
+For Windows, use [this link](https://downloads.exasol.com/exasol-personal).
+
+For more details about installing and running Exasol Personal, see the [official documentation](https://docs.exasol.com/db/latest/get_started/exasol_personal.htm) and the [Exasol Personal GitHub page](https://github.com/exasol/exasol-personal).
+
+
 ## Configure AWS Credentials
 
-You'll need your own AWS account. Configure the CLI with your credentials:
+You'll need your own AWS account. 
 
-```bash
-aws configure
-```
-
-Set the region:
-
-```bash
-export AWS_DEFAULT_REGION=eu-central-1
-```
-
-Verify:
-
-```bash
-aws sts get-caller-identity
-```
-
-## Required AWS Permissions
-
-We tested this workshop with the following IAM policy. The permissions are broad; you may be able to make them more restrictive for your setup.
+We tested this workshop with the following IAM policy:
 
 ```json
 {
@@ -78,6 +65,4 @@ We tested this workshop with the following IAM policy. The permissions are broad
 }
 ```
 
-## Follow the workshop
-
-Once the tools are installed and AWS is configured, follow [workshop.md](../workshop.md).
+The permissions are broad. You may be able to make them more restrictive for your setup.

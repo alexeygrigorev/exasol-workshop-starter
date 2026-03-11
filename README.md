@@ -1,17 +1,11 @@
 # Exasol Workshop Starter
 
+In this workshop we use [Exasol Personal](https://github.com/exasol/exasol-personal) - a high-performance analytics database, free for personal use. It provides the full Exasol engine with in-memory processing, massively parallel execution, and unlimited data storage. You deploy it on your own AWS account using the Exasol Launcher CLI, which provisions the infrastructure in minutes.
+
 ## Getting Started
 
-With codespaces (recommended):
-
-- Clone the [exasol-workshop-starter](https://github.com/alexeygrigorev/exasol-workshop-starter) repository
-- Go to Settings → Secrets and variables → Actions → New repository secret
-- Name: `WORKSHOP_PASSPHRASE`
-- Value: the passphrase from your instructor
-
-See more [here](setup/codespaces.md) (recommended)
-
-If you don't use codespaces, check [local setup](setup/local.md) to run with your own AWS account.
+- If you're running it with codespaces, see [here](setup/codespaces.md) (recommended setup during the workshop day)
+- If you're running it after the workshop day, see [local setup](setup/local.md) to run with your own AWS account
 
 
 ## Setting Up Exasol
@@ -329,11 +323,7 @@ Note that the usual `file` command doesn't reliably detect CRLF in CSV files —
 
 ## Connecting to Exasol
 
-By now the deployment should be complete. Go back to the terminal where you ran `exasol install aws`.
-
-When `exasol install aws` finishes, it prints connection details: host, port, username, and password. You can also find the password in `secrets.json`, and full connection info in `connection-instructions.txt` and `deployment.json`.
-
-If it's still running, wait for it to finish before continuing.
+By now the deployment should be complete. Go back to the terminal where you ran `exasol install aws`. If it's still running, wait for it to finish before continuing.
 
 ### Initialize the project
 
@@ -373,25 +363,18 @@ You'll need these details in the next step.
 
 [DBeaver](https://dbeaver.io/download/) is a database GUI that supports Exasol. Download it from [dbeaver.io/download](https://dbeaver.io/download/).
 
-To configure the Exasol connection in DBeaver, follow the [Exasol DBeaver guide](https://docs.exasol.com/db/latest/connect_exasol/sql_clients/dbeaver.htm). Use the connection details from the previous step.
+To connect DBeaver to Exasol (see also the [Exasol DBeaver guide](https://docs.exasol.com/db/latest/connect_exasol/sql_clients/dbeaver.htm)):
 
-Once connected, you can run SQL queries directly in DBeaver. We'll use it for the rest of the workshop.
+1. Go to Database - New Database Connection
+2. Select "Exasol" from the driver list, click Next
+3. Fill in the connection settings using the output from `connection_info.py`:
+   - Host: your hostname followed by `/` and the TLS fingerprint, e.g. `ec2-1-2-3-4.eu-central-1.compute.amazonaws.com/ABC123DEF456...`
+   - Port: `8563`
+   - Username and password from the output
+4. Click "Test Connection" - DBeaver will download the Exasol JDBC driver if needed
+5. Click "Finish"
 
-### Scrape available data URLs
-
-Download the URL scraper:
-
-```bash
-wget ${PREFIX}/find_urls.py
-```
-
-This script scrapes the [dataset page](https://www.data.gov.uk/dataset/176ae264-2484-4afe-a297-d51798eb8228/prescribing-by-gp-practice-presentation-level) to find all available CSV file URLs. Run it:
-
-```bash
-uv run python find_urls.py
-```
-
-It saves `data/prescription_urls.json` with ~101 months of data (2010-2018).
+Once connected, you can run SQL queries directly in DBeaver. We'll use it for the rest of the section.
 
 
 ## Loading data via SQL
@@ -437,12 +420,6 @@ CREATE TABLE STG_RAW_ADDR_201008 (
 );
 ```
 
-Single line:
-
-```sql
-CREATE TABLE STG_RAW_ADDR_201008 (PERIOD VARCHAR(100), PRACTICE_CODE VARCHAR(100), PRACTICE_NAME VARCHAR(2000), ADDRESS_1 VARCHAR(2000), ADDRESS_2 VARCHAR(2000), ADDRESS_3 VARCHAR(2000), COUNTY VARCHAR(2000), POSTCODE VARCHAR(200), EXTRA_PADDING VARCHAR(2000));
-```
-
 Import the data:
 
 ```sql
@@ -453,12 +430,6 @@ COLUMN SEPARATOR = ','
 ROW SEPARATOR = 'CRLF'
 SKIP = 0
 ENCODING = 'UTF8';
-```
-
-Single line:
-
-```sql
-IMPORT INTO STG_RAW_ADDR_201008 FROM CSV AT 'https://files.digital.nhs.uk/7D/F8A6AF' FILE 'T201008ADDR%20BNFT.CSV' COLUMN SEPARATOR = ',' ROW SEPARATOR = 'CRLF' SKIP = 0 ENCODING = 'UTF8';
 ```
 
 Check how many rows were loaded:
@@ -484,12 +455,6 @@ CREATE TABLE STG_ADDR_201008 (
 );
 ```
 
-Single line:
-
-```sql
-CREATE TABLE STG_ADDR_201008 (PERIOD VARCHAR(6), PRACTICE_CODE VARCHAR(20), PRACTICE_NAME VARCHAR(200), ADDRESS_1 VARCHAR(200), ADDRESS_2 VARCHAR(200), ADDRESS_3 VARCHAR(200), COUNTY VARCHAR(200), POSTCODE VARCHAR(20));
-```
-
 Insert with TRIM — we hardcode the period since it comes from the CSV as a data column, not a proper constant:
 
 ```sql
@@ -504,12 +469,6 @@ SELECT
     TRIM(COUNTY),
     TRIM(POSTCODE)
 FROM STG_RAW_ADDR_201008;
-```
-
-Single line:
-
-```sql
-INSERT INTO STG_ADDR_201008 SELECT '201008', TRIM(PRACTICE_CODE), TRIM(PRACTICE_NAME), TRIM(ADDRESS_1), TRIM(ADDRESS_2), TRIM(ADDRESS_3), TRIM(COUNTY), TRIM(POSTCODE) FROM STG_RAW_ADDR_201008;
 ```
 
 Drop the raw table:
@@ -531,12 +490,6 @@ CREATE TABLE STG_PROCESSED_ADDR_201008 (
 );
 ```
 
-Single line:
-
-```sql
-CREATE TABLE STG_PROCESSED_ADDR_201008 (PERIOD VARCHAR(6), PRACTICE_CODE VARCHAR(20), PRACTICE_NAME VARCHAR(200), ADDRESS VARCHAR(600), COUNTY VARCHAR(200), POSTCODE VARCHAR(20));
-```
-
 Concatenate the address parts, removing empty segments:
 
 ```sql
@@ -554,12 +507,6 @@ SELECT
     COUNTY,
     POSTCODE
 FROM STG_ADDR_201008;
-```
-
-Single line:
-
-```sql
-INSERT INTO STG_PROCESSED_ADDR_201008 SELECT PERIOD, PRACTICE_CODE, PRACTICE_NAME, TRIM(BOTH ', ' FROM REPLACE(COALESCE(ADDRESS_1, '') || ', ' || COALESCE(ADDRESS_2, '') || ', ' || COALESCE(ADDRESS_3, ''), ', , ', ', ')), COUNTY, POSTCODE FROM STG_ADDR_201008;
 ```
 
 Verify:
@@ -620,12 +567,6 @@ CREATE TABLE STG_RAW_CHEM_201008 (
 );
 ```
 
-Single line:
-
-```sql
-CREATE TABLE STG_RAW_CHEM_201008 (CHEM_SUB VARCHAR(50), NAME VARCHAR(2000), PERIOD VARCHAR(200));
-```
-
 Import the data:
 
 ```sql
@@ -636,12 +577,6 @@ COLUMN SEPARATOR = ','
 ROW SEPARATOR = 'CRLF'
 SKIP = 1
 ENCODING = 'UTF8';
-```
-
-Single line:
-
-```sql
-IMPORT INTO STG_RAW_CHEM_201008 FROM CSV AT 'https://files.digital.nhs.uk/15/ED9D38' FILE 'T201008CHEM%20SUBS.CSV' COLUMN SEPARATOR = ',' ROW SEPARATOR = 'CRLF' SKIP = 1 ENCODING = 'UTF8';
 ```
 
 Check the count:
@@ -662,12 +597,6 @@ CREATE TABLE STG_CHEM_201008 (
 );
 ```
 
-Single line:
-
-```sql
-CREATE TABLE STG_CHEM_201008 (CHEM_SUB VARCHAR(15), NAME VARCHAR(200), PERIOD VARCHAR(6));
-```
-
 Insert with TRIM — we hardcode the period instead of using the one from the CSV (which is in the odd third column):
 
 ```sql
@@ -677,12 +606,6 @@ SELECT
     TRIM(NAME),
     '201008'
 FROM STG_RAW_CHEM_201008;
-```
-
-Single line:
-
-```sql
-INSERT INTO STG_CHEM_201008 SELECT TRIM(CHEM_SUB), TRIM(NAME), '201008' FROM STG_RAW_CHEM_201008;
 ```
 
 Drop the raw table:
@@ -736,12 +659,6 @@ CREATE TABLE STG_RAW_PDPI_201008 (
 );
 ```
 
-Single line:
-
-```sql
-CREATE TABLE STG_RAW_PDPI_201008 (SHA VARCHAR(100), PCT VARCHAR(100), PRACTICE VARCHAR(100), BNF_CODE VARCHAR(50), BNF_NAME VARCHAR(2000), ITEMS DECIMAL(18,0), NIC DECIMAL(18,2), ACT_COST DECIMAL(18,2), QUANTITY DECIMAL(18,0), PERIOD VARCHAR(100), EXTRA_PADDING VARCHAR(2000));
-```
-
 Import the data - this takes a minute or two:
 
 ```sql
@@ -752,12 +669,6 @@ COLUMN SEPARATOR = ','
 ROW SEPARATOR = 'CRLF'
 SKIP = 1
 ENCODING = 'UTF8';
-```
-
-Single line:
-
-```sql
-IMPORT INTO STG_RAW_PDPI_201008 FROM CSV AT 'https://files.digital.nhs.uk/B9/14BEAF' FILE 'T201008PDPI%20BNFT.CSV' COLUMN SEPARATOR = ',' ROW SEPARATOR = 'CRLF' SKIP = 1 ENCODING = 'UTF8';
 ```
 
 Check how many rows were loaded:
@@ -795,12 +706,6 @@ CREATE TABLE STG_PDPI_201008 (
 );
 ```
 
-Single line:
-
-```sql
-CREATE TABLE STG_PDPI_201008 (SHA VARCHAR(10), PCT VARCHAR(10), PRACTICE VARCHAR(20), BNF_CODE VARCHAR(15), BNF_NAME VARCHAR(200), ITEMS DECIMAL(18,0), NIC DECIMAL(18,2), ACT_COST DECIMAL(18,2), QUANTITY DECIMAL(18,0), PERIOD VARCHAR(6));
-```
-
 Insert with TRIM:
 
 ```sql
@@ -817,12 +722,6 @@ SELECT
     QUANTITY,
     '201008'
 FROM STG_RAW_PDPI_201008;
-```
-
-Single line:
-
-```sql
-INSERT INTO STG_PDPI_201008 SELECT TRIM(SHA), TRIM(PCT), TRIM(PRACTICE), TRIM(BNF_CODE), TRIM(BNF_NAME), ITEMS, NIC, ACT_COST, QUANTITY, '201008' FROM STG_RAW_PDPI_201008;
 ```
 
 Drop the raw table:
@@ -930,12 +829,6 @@ CREATE TABLE IF NOT EXISTS PRESCRIPTIONS_UK.PRACTICE (
 );
 ```
 
-Single line:
-
-```sql
-CREATE TABLE IF NOT EXISTS PRESCRIPTIONS_UK.PRACTICE (PRACTICE_CODE VARCHAR(20), PRACTICE_NAME VARCHAR(200), ADDRESS VARCHAR(600), COUNTY VARCHAR(200), POSTCODE VARCHAR(20), PERIOD VARCHAR(6));
-```
-
 MERGE inserts new practices and updates existing ones. The PERIOD column tracks which month the data came from. Exasol doesn't support conditions on WHEN MATCHED, so we use CASE in the SET clause to only overwrite when the incoming period is newer or equal - otherwise the existing values are kept:
 
 ```sql
@@ -966,12 +859,6 @@ WHEN NOT MATCHED THEN INSERT VALUES (
 );
 ```
 
-Single line:
-
-```sql
-MERGE INTO PRESCRIPTIONS_UK.PRACTICE tgt USING PRESCRIPTIONS_UK_STAGING.STG_PROCESSED_ADDR_201008 src ON tgt.PRACTICE_CODE = src.PRACTICE_CODE WHEN MATCHED THEN UPDATE SET tgt.PRACTICE_NAME = CASE WHEN src.PERIOD >= tgt.PERIOD THEN src.PRACTICE_NAME ELSE tgt.PRACTICE_NAME END, tgt.ADDRESS = CASE WHEN src.PERIOD >= tgt.PERIOD THEN src.ADDRESS ELSE tgt.ADDRESS END, tgt.COUNTY = CASE WHEN src.PERIOD >= tgt.PERIOD THEN src.COUNTY ELSE tgt.COUNTY END, tgt.POSTCODE = CASE WHEN src.PERIOD >= tgt.PERIOD THEN src.POSTCODE ELSE tgt.POSTCODE END, tgt.PERIOD = CASE WHEN src.PERIOD >= tgt.PERIOD THEN src.PERIOD ELSE tgt.PERIOD END WHEN NOT MATCHED THEN INSERT VALUES (src.PRACTICE_CODE, src.PRACTICE_NAME, src.ADDRESS, src.COUNTY, src.POSTCODE, src.PERIOD);
-```
-
 Check the rows the address concatenation:
 
 ```sql
@@ -989,12 +876,6 @@ CREATE TABLE IF NOT EXISTS PRESCRIPTIONS_UK.CHEMICAL (
     CHEMICAL_NAME VARCHAR(200),
     PERIOD VARCHAR(6)
 );
-```
-
-Single line:
-
-```sql
-CREATE TABLE IF NOT EXISTS PRESCRIPTIONS_UK.CHEMICAL (CHEMICAL_CODE VARCHAR(15), CHEMICAL_NAME VARCHAR(200), PERIOD VARCHAR(6));
 ```
 
 Same MERGE pattern - insert new chemicals, update existing ones if the period is newer:
@@ -1018,12 +899,6 @@ WHEN MATCHED THEN UPDATE SET
 WHEN NOT MATCHED THEN INSERT VALUES (
     src.CHEM_SUB, src.NAME, src.PERIOD
 );
-```
-
-Single line:
-
-```sql
-MERGE INTO PRESCRIPTIONS_UK.CHEMICAL tgt USING (SELECT CHEM_SUB, NAME, PERIOD FROM PRESCRIPTIONS_UK_STAGING.STG_CHEM_201008) src ON tgt.CHEMICAL_CODE = src.CHEM_SUB WHEN MATCHED THEN UPDATE SET tgt.CHEMICAL_NAME = CASE WHEN src.PERIOD >= tgt.PERIOD THEN src.NAME ELSE tgt.CHEMICAL_NAME END, tgt.PERIOD = CASE WHEN src.PERIOD >= tgt.PERIOD THEN src.PERIOD ELSE tgt.PERIOD END WHEN NOT MATCHED THEN INSERT VALUES (src.CHEM_SUB, src.NAME, src.PERIOD);
 ```
 
 Check the result:
@@ -1054,12 +929,6 @@ CREATE TABLE IF NOT EXISTS PRESCRIPTIONS_UK.PRESCRIPTION (
 );
 ```
 
-Single line:
-
-```sql
-CREATE TABLE IF NOT EXISTS PRESCRIPTIONS_UK.PRESCRIPTION (PRACTICE_CODE VARCHAR(20), BNF_CODE VARCHAR(15), CHEMICAL_CODE VARCHAR(9), DRUG_NAME VARCHAR(200), ITEMS DECIMAL(18,0), NET_COST DECIMAL(18,2), ACTUAL_COST DECIMAL(18,2), QUANTITY DECIMAL(18,0), PERIOD VARCHAR(6));
-```
-
 Delete any existing rows for this period (no-op on first run, prevents duplicates on re-run):
 
 ```sql
@@ -1083,28 +952,62 @@ SELECT
 FROM PRESCRIPTIONS_UK_STAGING.STG_PDPI_201008;
 ```
 
-Single line:
-
-```sql
-INSERT INTO PRESCRIPTIONS_UK.PRESCRIPTION SELECT PRACTICE, BNF_CODE, SUBSTR(BNF_CODE, 1, 9), BNF_NAME, ITEMS, NIC, ACT_COST, QUANTITY, PERIOD FROM PRESCRIPTIONS_UK_STAGING.STG_PDPI_201008;
-```
-
 Check the result:
 
 ```sql
 SELECT * FROM PRESCRIPTIONS_UK.PRESCRIPTION LIMIT 5;
 ```
 
-This is a first draft of the warehouse design. For now we keep every monthly snapshot of each dimension, which is the safest starting point.
+This is a first draft of the warehouse design. 
 
-Once we load all 101 months, we can analyze how the data actually changes over time - do practices move? How often do chemical names change? That analysis will tell us the best way to model dimensions (e.g. slowly changing dimensions Type 1 vs Type 2, or just keeping the latest snapshot). 
+### Verify the warehouse
+
+Let's run a few queries to check that the data loaded correctly.
+
+Row counts:
+
+```sql
+SELECT COUNT(1) FROM PRESCRIPTIONS_UK.PRACTICE;
+SELECT COUNT(1) FROM PRESCRIPTIONS_UK.CHEMICAL;
+SELECT COUNT(1) FROM PRESCRIPTIONS_UK.PRESCRIPTION;
+```
+
+Top 10 chemicals by total cost:
+
+```sql
+SELECT sub.CHEMICAL_CODE, c.CHEMICAL_NAME, sub.TOTAL_ITEMS, sub.TOTAL_COST
+FROM (
+    SELECT CHEMICAL_CODE, SUM(ITEMS) AS TOTAL_ITEMS, SUM(ACTUAL_COST) AS TOTAL_COST
+    FROM PRESCRIPTIONS_UK.PRESCRIPTION
+    GROUP BY CHEMICAL_CODE
+) sub
+LEFT JOIN PRESCRIPTIONS_UK.CHEMICAL c
+    ON sub.CHEMICAL_CODE = c.CHEMICAL_CODE
+ORDER BY sub.TOTAL_COST DESC
+LIMIT 10;
+```
+
+Top 10 practices by prescription volume:
+
+```sql
+SELECT sub.PRACTICE_CODE, pr.PRACTICE_NAME, pr.POSTCODE, sub.TOTAL_ITEMS
+FROM (
+    SELECT PRACTICE_CODE, SUM(ITEMS) AS TOTAL_ITEMS
+    FROM PRESCRIPTIONS_UK.PRESCRIPTION
+    GROUP BY PRACTICE_CODE
+) sub
+LEFT JOIN PRESCRIPTIONS_UK.PRACTICE pr
+    ON sub.PRACTICE_CODE = pr.PRACTICE_CODE
+ORDER BY sub.TOTAL_ITEMS DESC
+LIMIT 10;
+```
 
 
 ## Automated data load
 
 We loaded one month manually to understand the process. Now let's automate it - first with Python scripts, then with Kestra as a workflow orchestrator.
 
-We already set up the project directory and scraped the available URLs earlier. Open a new terminal, go to the `code` directory, and set the PREFIX:
+Open a new terminal, go to the `code` directory, and set the PREFIX:
 
 ```bash
 cd code
@@ -1113,19 +1016,31 @@ PREFIX=https://raw.githubusercontent.com/alexeygrigorev/exasol-workshop-starter/
 
 ### Shared utilities module
 
-Create the `utils/` package and download the shared modules:
+We already downloaded `utils/connection_info.py` previously - the loader scripts will use it to connect to Exasol. Download the remaining shared modules:
 
 ```bash
-mkdir -p utils
-touch utils/__init__.py
-wget ${PREFIX}/utils/connection_info.py -O utils/connection_info.py
 wget ${PREFIX}/utils/detect_format.py -O utils/detect_format.py
 wget ${PREFIX}/utils/db.py -O utils/db.py
 ```
 
-- [`utils/connection_info.py`](reference/utils/connection_info.py) reads the deployment files to get host, port, and credentials
 - [`utils/detect_format.py`](reference/utils/detect_format.py) detects CSV format (row separator, column count, header) by downloading a small sample
 - [`utils/db.py`](reference/utils/db.py) ties them together and provides `connect()`, `ensure_schemas()`, `import_csv()`, and `get_url()` for the loader scripts
+
+### Scrape available data URLs
+
+Download the URL scraper:
+
+```bash
+wget ${PREFIX}/find_urls.py
+```
+
+This script scrapes the [dataset page](https://www.data.gov.uk/dataset/176ae264-2484-4afe-a297-d51798eb8228/prescribing-by-gp-practice-presentation-level) to find all available CSV file URLs. Run it:
+
+```bash
+uv run python find_urls.py
+```
+
+It saves `data/prescription_urls.json` with ~101 months of data (2010-2018).
 
 ### Load ADDR (practice addresses)
 

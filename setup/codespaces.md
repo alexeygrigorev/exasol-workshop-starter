@@ -38,7 +38,3 @@ AWS access is configured automatically. Verify:
 ```bash
 aws sts get-caller-identity
 ```
-
-## 4. Follow the workshop
-
-See [workshop.md](../workshop.md) for the full workshop guide.
