@@ -1148,6 +1148,8 @@ cd code
 mkdir -p kestra/flows
 PREFIX=https://raw.githubusercontent.com/alexeygrigorev/exasol-workshop-starter/main/reference
 wget ${PREFIX}/kestra/docker-compose.yml -O kestra/docker-compose.yml
+mkdir -p kestra/scripts
+wget ${PREFIX}/kestra/scripts/sync_flows.py -O kestra/scripts/sync_flows.py
 ```
 
 Create the `flows/` directory before starting Kestra — otherwise `docker compose` creates it as root and you won't be able to write to it later.
@@ -1243,7 +1245,9 @@ wget ${PREFIX}/kestra/flows/main_prescriptions_load_pdpi.yml -O kestra/flows/mai
 wget ${PREFIX}/kestra/flows/main_prescriptions_load_month.yml -O kestra/flows/main_prescriptions_load_month.yml
 ```
 
-The flows should appear in the Kestra UI automatically. Each pipeline type has its own flow definition: [load_addr](reference/kestra/flows/main_prescriptions_load_addr.yml), [load_chem](reference/kestra/flows/main_prescriptions_load_chem.yml), and [load_pdpi](reference/kestra/flows/main_prescriptions_load_pdpi.yml). The [load_month](reference/kestra/flows/main_prescriptions_load_month.yml) flow calls them as subflows sequentially:
+The flows should appear in the Kestra UI automatically. If you're running on Windows, Kestra's file watcher may not detect changes you make to flow files — Docker on Windows doesn't propagate filesystem events through bind mounts. Flows are still loaded at container startup, but if you edit a flow while Kestra is running, sync your changes by running `uv run python scripts/sync_flows.py` from the `code/kestra/` directory.
+
+Each pipeline type has its own flow definition: [load_addr](reference/kestra/flows/main_prescriptions_load_addr.yml), [load_chem](reference/kestra/flows/main_prescriptions_load_chem.yml), and [load_pdpi](reference/kestra/flows/main_prescriptions_load_pdpi.yml). The [load_month](reference/kestra/flows/main_prescriptions_load_month.yml) flow calls them as subflows sequentially:
 
 ```
 load_month(period)
