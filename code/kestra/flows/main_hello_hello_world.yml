@@ -1,7 +1,0 @@
-id: hello_world
-namespace: hello
-
-tasks:
-  - id: say_hello
-    type: io.kestra.plugin.core.log.Log
-    message: "Hello from Kestra!"

@@ -1245,7 +1245,35 @@ wget ${PREFIX}/kestra/flows/main_prescriptions_load_pdpi.yml -O kestra/flows/mai
 wget ${PREFIX}/kestra/flows/main_prescriptions_load_month.yml -O kestra/flows/main_prescriptions_load_month.yml
 ```
 
-The flows should appear in the Kestra UI automatically. If you're running on Windows, Kestra's file watcher may not detect changes you make to flow files — Docker on Windows doesn't propagate filesystem events through bind mounts. Flows are still loaded at container startup, but if you edit a flow while Kestra is running, sync your changes by running `uv run python scripts/sync_flows.py` from the `code/kestra/` directory.
+The flows should appear in the Kestra UI automatically. If you're running on Windows, Kestra's file watcher may not work - Docker on Windows doesn't propagate filesystem events from the host into the container through bind mounts, so Kestra can't detect new or changed flow files. The file watcher can also load flows with broken input definitions, causing subflow calls to fail with "Unable to find inputs".
+
+To fix this, remove the file watcher config from `kestra/docker-compose.yml` — delete these lines from the `KESTRA_CONFIGURATION` block:
+
+```yaml
+micronaut:
+  io:
+    watch:
+      enabled: true
+      paths:
+        - /kestra-flows
+```
+
+Then restart Kestra:
+
+```bash
+cd kestra
+docker compose down
+docker compose up -d
+```
+
+Without the file watcher, use the sync script to push flows to Kestra via its API. From the `code/kestra/` directory, run:
+
+```bash
+cd kestra
+uv run python scripts/sync_flows.py
+```
+
+The script reads every `.yml` file in `flows/`, extracts the namespace and flow ID, and pushes each one to Kestra's REST API. It also deletes any flows from Kestra that no longer have a local file. Run it whenever you add, edit, or remove flow files.
 
 Each pipeline type has its own flow definition: [load_addr](reference/kestra/flows/main_prescriptions_load_addr.yml), [load_chem](reference/kestra/flows/main_prescriptions_load_chem.yml), and [load_pdpi](reference/kestra/flows/main_prescriptions_load_pdpi.yml). The [load_month](reference/kestra/flows/main_prescriptions_load_month.yml) flow calls them as subflows sequentially:
 
