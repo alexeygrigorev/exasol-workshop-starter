@@ -1,5 +1,7 @@
 # Exasol Workshop Starter
 
+Recording: https://www.youtube.com/watch?v=67ICzzpued8
+
 In this workshop we use [Exasol Personal](https://github.com/exasol/exasol-personal) - a high-performance analytics database, free for personal use. It provides the full Exasol engine with in-memory processing, massively parallel execution, and unlimited data storage. You deploy it on your own AWS account using the Exasol Launcher CLI, which provisions the infrastructure in minutes.
 
 ## Getting Started
